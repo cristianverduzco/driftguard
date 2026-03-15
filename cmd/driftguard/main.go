@@ -13,6 +13,7 @@ import (
 	"github.com/cristianverduzco/driftguard/internal/drift"
 	"github.com/cristianverduzco/driftguard/internal/git"
 	dgmetrics "github.com/cristianverduzco/driftguard/internal/metrics"
+	"github.com/cristianverduzco/driftguard/internal/notifier"
 	"github.com/cristianverduzco/driftguard/internal/remediation"
 )
 
@@ -25,6 +26,7 @@ func main() {
 		metricsAddr    string
 		dryRun         bool
 		autoRemediate  bool
+		slackWebhook   string
 	)
 
 	flag.StringVar(&gitURL, "git-url", "", "Git repository URL to watch (required)")
@@ -34,6 +36,7 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "Address to expose Prometheus metrics")
 	flag.BoolVar(&dryRun, "dry-run", false, "Print what would be remediated without making changes")
 	flag.BoolVar(&autoRemediate, "auto-remediate", false, "Automatically re-apply drifted manifests")
+	flag.StringVar(&slackWebhook, "slack-webhook", os.Getenv("SLACK_WEBHOOK_URL"), "Slack webhook URL for drift notifications")
 	flag.Parse()
 
 	if gitURL == "" {
@@ -48,6 +51,7 @@ func main() {
 	fmt.Printf("   Auto-remediate: %v\n", autoRemediate)
 	fmt.Printf("   Dry run:        %v\n", dryRun)
 	fmt.Printf("   Metrics:        %s\n", metricsAddr)
+	fmt.Printf("   Slack:          %v\n", slackWebhook != "")
 
 	localPath := "/tmp/driftguard-repo"
 	repo := git.NewRepo(gitURL, gitBranch, localPath)
@@ -71,6 +75,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	slack := notifier.NewSlackNotifier(slackWebhook)
+
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -86,10 +92,10 @@ func main() {
 	ticker := time.NewTicker(time.Duration(syncInterval) * time.Second)
 	defer ticker.Stop()
 
-	runSync(repo, detector, remediator, autoRemediate)
+	runSync(repo, detector, remediator, slack, autoRemediate)
 
 	for range ticker.C {
-		runSync(repo, detector, remediator, autoRemediate)
+		runSync(repo, detector, remediator, slack, autoRemediate)
 	}
 }
 
@@ -97,6 +103,7 @@ func runSync(
 	repo *git.Repo,
 	detector *drift.Detector,
 	remediator *remediation.Remediator,
+	slack *notifier.SlackNotifier,
 	autoRemediate bool,
 ) {
 	ctx := context.Background()
@@ -132,13 +139,23 @@ func runSync(
 
 	if len(drifts) == 0 {
 		fmt.Println("✅ No drift detected — cluster matches desired state")
+		if err := slack.NotifyResolved(commit); err != nil {
+			fmt.Printf("⚠ Slack notification failed: %v\n", err)
+		}
 	} else {
 		fmt.Printf("⚠ Detected %d drifted resource(s):\n", len(drifts))
+		events := []notifier.DriftEvent{}
 		for _, d := range drifts {
 			fmt.Printf("  - %s/%s (namespace: %s, reason: %s)\n", d.Kind, d.Name, d.Namespace, d.Reason)
 			dgmetrics.DriftDetected.WithLabelValues(d.Kind, d.Namespace, d.Name).Set(1)
 			dgmetrics.DriftTotal.WithLabelValues(d.Kind, d.Namespace).Inc()
-
+			events = append(events, notifier.DriftEvent{
+				Kind:      d.Kind,
+				Name:      d.Name,
+				Namespace: d.Namespace,
+				Reason:    d.Reason,
+				Commit:    commit,
+			})
 			if autoRemediate {
 				fmt.Printf("  🔧 Remediating %s/%s...\n", d.Kind, d.Name)
 				for _, path := range manifests {
@@ -150,6 +167,9 @@ func runSync(
 					}
 				}
 			}
+		}
+		if err := slack.NotifyDrift(events, commit); err != nil {
+			fmt.Printf("⚠ Slack notification failed: %v\n", err)
 		}
 	}
 

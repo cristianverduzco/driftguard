@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driftguard
+  namespace: driftguard-system
+  labels:
+    app: driftguard
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: driftguard
+  template:
+    metadata:
+      labels:
+        app: driftguard
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.metrics.port }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: driftguard
+      containers:
+        - name: driftguard
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --git-url={{ .Values.git.url }}
+            - --git-branch={{ .Values.git.branch }}
+            - --sync-interval={{ .Values.syncInterval }}
+            - --metrics-addr=:{{ .Values.metrics.port }}
+            - --auto-remediate={{ .Values.autoRemediate }}
+            - --dry-run={{ .Values.dryRun }}
+          {{- if .Values.slackWebhookUrl }}
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: driftguard-secrets
+                  key: slack-webhook-url
+          {{- end }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.metrics.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.metrics.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
