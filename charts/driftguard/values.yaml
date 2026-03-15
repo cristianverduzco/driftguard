@@ -5,29 +5,23 @@ image:
 
 replicaCount: 1
 
-# Git repository to watch
 git:
   url: ""
   branch: main
 
-# Sync interval in seconds
 syncInterval: 30
-
-# Enable auto-remediation
 autoRemediate: false
-
-# Dry run mode
 dryRun: false
-
-# Slack webhook URL (set via --set or secret)
 slackWebhookUrl: ""
 
-# Metrics configuration
 metrics:
   enabled: true
   port: 8080
 
-# Resource limits
+dashboard:
+  enabled: true
+  port: 9091
+
 resources:
   requests:
     cpu: 50m
@@ -36,7 +30,6 @@ resources:
     cpu: 200m
     memory: 128Mi
 
-# ServiceMonitor for Prometheus Operator
 serviceMonitor:
   enabled: false
   namespace: monitoring

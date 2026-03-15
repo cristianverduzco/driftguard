@@ -1,10 +1,17 @@
-{{- if .Values.slackWebhookUrl }}
 apiVersion: v1
-kind: Secret
+kind: Service
 metadata:
-  name: driftguard-secrets
+  name: driftguard
   namespace: driftguard-system
-type: Opaque
-stringData:
-  slack-webhook-url: {{ .Values.slackWebhookUrl | quote }}
-{{- end }}
+  labels:
+    app: driftguard
+spec:
+  selector:
+    app: driftguard
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+    - name: dashboard
+      port: {{ .Values.dashboard.port }}
+      targetPort: dashboard

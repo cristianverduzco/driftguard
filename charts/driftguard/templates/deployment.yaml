@@ -30,6 +30,7 @@ spec:
             - --git-branch={{ .Values.git.branch }}
             - --sync-interval={{ .Values.syncInterval }}
             - --metrics-addr=:{{ .Values.metrics.port }}
+            - --dashboard-addr=:{{ .Values.dashboard.port }}
             - --auto-remediate={{ .Values.autoRemediate }}
             - --dry-run={{ .Values.dryRun }}
           {{- if .Values.slackWebhookUrl }}
@@ -43,6 +44,9 @@ spec:
           ports:
             - name: metrics
               containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            - name: dashboard
+              containerPort: {{ .Values.dashboard.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
