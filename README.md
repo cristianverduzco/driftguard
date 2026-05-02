@@ -173,19 +173,23 @@ Deployments, StatefulSets, DaemonSets, Services, Ingresses, ConfigMaps, Secrets,
 
 ## Roadmap
 
-- [x] Continuous drift detection against Git desired state
-- [x] Auto-remediation via server-side apply
-- [x] Slack notifications on drift and resolved events
-- [x] Real-time web dashboard with sync and drift history
-- [x] Prometheus metrics with histograms and counters
-- [x] Helm chart with RBAC and ServiceMonitor
-- [x] Deployed on self-hosted kubeadm cluster
-- [ ] Field-level diff detection (not just existence)
-- [ ] Ignore rules for Kubernetes-managed fields
-- [ ] Private Git repository support (SSH, tokens)
-- [ ] Multi-cluster support
-- [ ] Persistent drift history (database backend)
+**Implemented:**
+- ✅ Continuous drift detection against Git desired state
+- ✅ Auto-remediation via server-side apply with field manager tracking
+- ✅ Slack notifications on drift and resolved events
+- ✅ Real-time web dashboard with sync and drift history
+- ✅ Prometheus metrics with histograms and counters
+- ✅ Helm chart with RBAC and ServiceMonitor
+- ✅ Distroless container, runs as non-root
+- ✅ Deployed on self-hosted kubeadm cluster
 
+**Planned:**
+- Field-level diff detection (currently resource-existence only)
+- Configurable ignore rules for Kubernetes-managed fields
+- Private Git repository support (SSH keys, deploy tokens)
+- Multi-cluster support
+- Persistent drift history with database backend
+- Webhook-driven sync (in addition to polling)
 ---
 
 ## Status
