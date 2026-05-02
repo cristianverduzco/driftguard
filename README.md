@@ -189,7 +189,7 @@ Deployments, StatefulSets, DaemonSets, Services, Ingresses, ConfigMaps, Secrets,
 - Private Git repository support (SSH keys, deploy tokens)
 - Multi-cluster support
 - Persistent drift history with database backend
-- Webhook-driven sync (in addition to polling)
+
 ---
 
 ## Status
